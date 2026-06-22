@@ -1,0 +1,303 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #f9fafb;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f3f4f6;
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --text-muted: #9ca3af;
+    --border-color: #e5e7eb;
+    --border-hover: #d1d5db;
+    --code-bg: #1e293b;
+    --sidebar-width: 260px;
+  }
+
+  .dark {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --border-color: #334155;
+    --border-hover: #475569;
+    --code-bg: #0f172a;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-slate-900 dark:text-slate-100;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-slate-600 rounded-full;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-slate-500;
+  }
+
+  .callout-tip {
+    @apply border-l-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30;
+  }
+  .callout-info {
+    @apply border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950/30;
+  }
+  .callout-warning {
+    @apply border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/30;
+  }
+  .callout-danger {
+    @apply border-l-4 border-red-500 bg-red-50 dark:bg-red-950/30;
+  }
+
+  .difficulty-easy {
+    @apply text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800;
+  }
+  .difficulty-medium {
+    @apply text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800;
+  }
+  .difficulty-hard {
+    @apply text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800;
+  }
+}
+
+/* KaTeX overrides */
+.katex-display {
+  @apply my-4 overflow-x-auto;
+}
+
+/* Monaco editor overrides */
+.monaco-editor .margin {
+  @apply !bg-transparent;
+}
+
+/* ===== ML Article Custom Styles ===== */
+
+.ml-content {
+  @apply text-gray-700 dark:text-gray-300;
+  line-height: 1.8;
+}
+
+/* Section Headers */
+.ml-section-header {
+  @apply flex items-center gap-3 mt-12 mb-6 pb-3 border-b border-gray-200 dark:border-slate-600;
+}
+
+.ml-section-header h2 {
+  @apply text-2xl font-bold text-gray-900 dark:text-white m-0 p-0 border-0;
+}
+
+.ml-section-icon {
+  @apply text-2xl flex-shrink-0;
+}
+
+/* Subsection Headers */
+.ml-subsection-header {
+  @apply text-lg font-semibold text-gray-800 dark:text-gray-100 mt-8 mb-4 pl-1;
+  border-left: 3px solid theme('colors.purple.400');
+  padding-left: 12px;
+}
+
+/* Paragraphs */
+.ml-paragraph {
+  @apply text-sm leading-relaxed text-gray-600 dark:text-gray-400 mb-4;
+}
+
+/* Tables */
+.ml-table-wrapper {
+  @apply my-8 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-600 shadow-sm;
+}
+
+.ml-table {
+  @apply w-full text-sm border-collapse;
+  table-layout: fixed;
+}
+
+.ml-table thead tr {
+  @apply bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30;
+}
+
+.ml-table th {
+  @apply px-5 py-3.5 text-left text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider border-b-2 border-purple-200 dark:border-purple-800;
+}
+
+.ml-table td {
+  @apply px-5 py-3.5 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700;
+}
+
+.ml-table tbody tr:last-child td {
+  @apply border-b-0;
+}
+
+.ml-table tbody tr:hover {
+  @apply bg-gray-50 dark:bg-slate-700/30;
+}
+
+.ml-table tbody tr:nth-child(even) {
+  @apply bg-gray-50/50 dark:bg-slate-800/30;
+}
+
+/* Callouts */
+.ml-callout {
+  @apply my-6 p-5 rounded-xl flex items-start gap-3.5;
+}
+
+.ml-callout-icon {
+  @apply text-xl flex-shrink-0 mt-0.5;
+}
+
+.ml-callout-content {
+  @apply text-sm leading-relaxed flex-1;
+}
+
+.ml-callout-content strong {
+  @apply font-semibold;
+}
+
+.ml-callout-tip {
+  @apply bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800;
+}
+
+.ml-callout-tip .ml-callout-content {
+  @apply text-emerald-800 dark:text-emerald-300;
+}
+
+.ml-callout-warning {
+  @apply bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800;
+}
+
+.ml-callout-warning .ml-callout-content {
+  @apply text-amber-800 dark:text-amber-300;
+}
+
+.ml-callout-gold {
+  @apply bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200 dark:border-amber-800;
+}
+
+.ml-callout-gold .ml-callout-content {
+  @apply text-amber-900 dark:text-amber-200;
+}
+
+.ml-callout-info {
+  @apply bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800;
+}
+
+.ml-callout-info .ml-callout-content {
+  @apply text-blue-800 dark:text-blue-300;
+}
+
+/* List Items */
+.ml-list-item {
+  @apply flex items-start gap-3 my-2.5 pl-2;
+}
+
+.ml-bullet {
+  @apply text-purple-500 dark:text-purple-400 font-bold mt-0.5 flex-shrink-0;
+}
+
+.ml-list-item span:last-child {
+  @apply text-sm text-gray-600 dark:text-gray-400;
+}
+
+/* Numbered Items */
+.ml-numbered-item {
+  @apply flex items-start gap-3 my-2.5 pl-2;
+}
+
+.ml-number {
+  @apply w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5;
+}
+
+.ml-numbered-item span:last-child {
+  @apply text-sm text-gray-600 dark:text-gray-400;
+}
+
+/* Divider */
+.ml-divider {
+  @apply my-10 border-0 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent;
+}
+
+/* Inline Elements */
+.ml-bold {
+  @apply font-semibold text-gray-900 dark:text-white;
+}
+
+.ml-inline-code {
+  @apply px-2 py-0.5 bg-gray-100 dark:bg-slate-700 rounded-md text-sm font-mono text-purple-600 dark:text-purple-400 border border-gray-200 dark:border-slate-600;
+}
+
+.ml-formula-inline {
+  @apply font-mono text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded;
+}
+
+/* KaTeX Display Wrapper */
+.katex-display-wrapper {
+  @apply my-6 block text-center overflow-x-auto;
+}
+
+.katex-display-wrapper .katex-display {
+  @apply my-2;
+}
+
+/* Blockquotes from markdown */
+.ml-content blockquote {
+  @apply border-l-4 border-purple-400 bg-purple-50 dark:bg-purple-950/20 rounded-r-lg py-3 px-5 my-6 text-sm;
+}
+
+/* Fenced Code Blocks */
+.ml-code-block-wrapper {
+  @apply my-6 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-600 shadow-sm;
+}
+
+.ml-code-block-header {
+  @apply flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-slate-700 border-b border-gray-200 dark:border-slate-600;
+}
+
+.ml-code-block-lang {
+  @apply text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md;
+  @apply bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400;
+}
+
+.ml-code-block-dots {
+  @apply flex gap-1.5;
+}
+
+.ml-code-block-dots span {
+  @apply w-2.5 h-2.5 rounded-full;
+}
+
+.ml-code-block-dots span:nth-child(1) { @apply bg-red-400; }
+.ml-code-block-dots span:nth-child(2) { @apply bg-amber-400; }
+.ml-code-block-dots span:nth-child(3) { @apply bg-emerald-400; }
+
+.ml-code-block {
+  @apply overflow-x-auto p-5 text-sm leading-relaxed font-mono;
+  @apply bg-[#1e293b] text-gray-200;
+  tab-size: 4;
+}
+
+.dark .ml-code-block {
+  @apply bg-[#0f172a];
+}
+
+/* Python syntax highlighting tokens */
+.ml-code-block .py-kw { @apply text-purple-400 font-semibold; }
+.ml-code-block .py-fn { @apply text-blue-400; }
+.ml-code-block .py-str { @apply text-emerald-400; }
+.ml-code-block .py-num { @apply text-amber-400; }
+.ml-code-block .py-cm { @apply text-slate-500 italic; }
+.ml-code-block .py-op { @apply text-gray-400; }
+.ml-code-block .py-var { @apply text-cyan-300; }
+.ml-code-block .py-dec { @apply text-pink-400; }
+.ml-code-block .py-bi { @apply text-yellow-300; }
