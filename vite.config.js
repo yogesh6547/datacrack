@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/datacrack/',
+  base: process.env.NODE_ENV === 'production' ? '/datacrack/' : '/',
   server: {
     port: 3000,
     open: true
