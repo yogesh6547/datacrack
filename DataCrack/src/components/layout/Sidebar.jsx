@@ -6,6 +6,21 @@ import { useState } from 'react'
 
 const navItems = [
   {
+    path: '/Concepts',
+    label: 'Concepts',
+    icon: Lightbulb,
+    totalKey: 'totalConcepts',
+    solvedKey: 'conceptCompleted',
+    dynamicTotal: totalConcepts,
+  },
+  {
+    path: '/ml',
+    label: 'ML Concepts',
+    icon: Brain,
+    totalKey: 'totalML',
+    solvedKey: 'mlCompleted',
+  },
+  {
     path: '/python',
     label: 'Python Coding',
     icon: Code2,
@@ -18,21 +33,6 @@ const navItems = [
     icon: Database,
     totalKey: 'totalSQL',
     solvedKey: 'sqlSolved',
-  },
-  {
-    path: '/ml',
-    label: 'ML Concepts',
-    icon: Brain,
-    totalKey: 'totalML',
-    solvedKey: 'mlCompleted',
-  },
-  {
-    path: '/Concepts',
-    label: 'Concepts',
-    icon: Lightbulb,
-    totalKey: 'totalConcepts',
-    solvedKey: 'conceptCompleted',
-    dynamicTotal: totalConcepts,
   },
 ]
 

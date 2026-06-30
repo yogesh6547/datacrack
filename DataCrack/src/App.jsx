@@ -9,7 +9,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<AppLayout />}>
-        <Route index element={<Navigate to="/python" replace />} />
+        <Route index element={<Navigate to="/Concepts" replace />} />
         <Route path="python" element={<PythonChallengePage />} />
         <Route path="python/:questionId" element={<PythonChallengePage />} />
         <Route path="sql" element={<SQLChallengePage />} />
