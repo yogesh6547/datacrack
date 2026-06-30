@@ -164,7 +164,7 @@ html {
 .ml-table th {
   @apply px-4 py-3 text-left text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider border-b-2 border-purple-200 dark:border-purple-800;
   white-space: nowrap;
-  min-width: 100px;
+  min-width: 120px;
 }
 
 .ml-table td {

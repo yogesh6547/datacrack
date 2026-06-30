@@ -20,10 +20,10 @@ At its essence, a Decision Tree mirrors a flowchart where:
 
 Unlike linear models that find a global boundary (like a hyperplane), Decision Trees partition the feature space into **orthogonal, hyper-rectangular regions**.
 
-| Feature Y | | |
+| Feature Y | Region X | Region Z |
 |---|---|---|
-| Region A | Region B | |
-| Region C (spans full width) | | |
+| Region A | Region B | Region C |
+| Region C (spans full width) | Region D | Region E |
 
 ### The Recursive Binary Splitting Algorithm
 
