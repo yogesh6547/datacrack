@@ -143,17 +143,18 @@ html {
   @apply text-sm leading-relaxed text-gray-600 dark:text-gray-400 mb-4;
 }
 
-/* Tables - make horizontally scrollable on mobile with adequate column width */
+/* Tables - fit to screen on mobile, scroll only when necessary */
 .ml-table-wrapper {
-  @apply my-6 lg:my-8 rounded-xl overflow-x-auto border border-gray-200 dark:border-slate-600 shadow-sm;
+  @apply my-6 lg:my-8 rounded-xl border border-gray-200 dark:border-slate-600 shadow-sm;
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
+  overflow-x: auto;
 }
 
 .ml-table {
-  @apply w-full text-sm border-collapse;
+  @apply w-full text-xs sm:text-sm border-collapse;
   table-layout: auto;
-  min-width: 400px; /* Adequate width for readability */
+  min-width: auto;
   max-width: 100%;
 }
 
@@ -162,13 +163,13 @@ html {
 }
 
 .ml-table th {
-  @apply px-4 py-3 text-left text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider border-b-2 border-purple-200 dark:border-purple-800;
+  @apply px-2 sm:px-3 py-2 text-left text-[10px] sm:text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider border-b-2 border-purple-200 dark:border-purple-800;
   white-space: nowrap;
-  min-width: 120px;
+  min-width: 80px;
 }
 
 .ml-table td {
-  @apply px-4 py-3 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700;
+  @apply px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-slate-700;
   word-break: break-word;
   overflow-wrap: break-word;
 }
