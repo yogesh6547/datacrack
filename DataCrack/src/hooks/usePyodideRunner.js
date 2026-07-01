@@ -38,21 +38,24 @@ const MAX_OUTPUT_CHARS = 5000
 const MAX_OUTPUT_LINES = 100
 
 /**
- * Run Python code and return stdout, stderr, any error.
+ * Execute Python code in a fresh namespace with stdout/stderr capture.
+ * The code is wrapped with StringIO redirection and returns (stdout, stderr) tuple.
+ * This is the low-level executor used by both runPythonCode and runPythonTests.
  */
-export async function runPythonCode(code) {
+async function executePython(code) {
   const pyodide = await getPyodide()
 
-  // Reset globals namespace for isolation between runs
+  // Fresh namespace for isolation
   const namespace = pyodide.globals.get('dict')()
   namespace.set('__builtins__', pyodide.globals.get('__builtins__'))
 
-  const capturedOutput = []
-  let capturedError = ''
+  let stdout = ''
+  let stderr = ''
   let timedOut = false
+  let error = null
 
-  // Redirect stdout/stderr to our buffer
-  const setupCode = `
+  // Wrap code with stdout/stderr capture
+  const wrappedCode = `
 import sys
 from io import StringIO
 
@@ -63,57 +66,45 @@ _orig_stderr = sys.stderr
 sys.stdout = _captured_out
 sys.stderr = _captured_err
 
-def _flush_output():
-    sys.stdout = _orig_stdout
-    sys.stderr = _orig_stderr
-    out = _captured_out.getvalue()
-    err = _captured_err.getvalue()
-    _captured_out.close()
-    _captured_err.close()
-    return out, err
-`
+try:
+${code.split('\n').map(line => '    ' + line).join('\n')}
+except Exception as _e:
+    import traceback
+    traceback.print_exc()
 
-  // Teardown code to restore stdout/stderr and flush
-  const teardownCode = `
-_flush_output()
+sys.stdout = _orig_stdout
+sys.stderr = _orig_stderr
+_out_val = _captured_out.getvalue()
+_err_val = _captured_err.getvalue()
+_captured_out.close()
+_captured_err.close()
+(_out_val, _err_val)
 `
 
   try {
-    await pyodide.runPythonAsync(setupCode, { globals: namespace })
-
-    // Execute with timeout
-    const execPromise = pyodide.runPythonAsync(code, { globals: namespace })
+    const execPromise = pyodide.runPythonAsync(wrappedCode, { globals: namespace })
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('TIMEOUT')), PYTHON_TIMEOUT_MS)
     )
 
-    await Promise.race([execPromise, timeoutPromise])
+    const result = await Promise.race([execPromise, timeoutPromise])
 
-    // Flush output
-    const result = await pyodide.runPythonAsync(teardownCode, { globals: namespace })
-    capturedOutput.push(result)
-
-  } catch (err) {
-    if (err.message === 'TIMEOUT' || (err.toString && err.toString().includes('TIMEOUT'))) {
-      timedOut = true
-      capturedError = 'Timeout Error: Execution exceeded 4 seconds. Check for infinite loops.'
-    } else {
-      capturedError = err.toString()
+    if (result && result.length === 2) {
+      stdout = (result[0] || '').trim()
+      stderr = (result[1] || '').trim()
     }
-
-    // Try to flush partial output even on error
-    try {
-      const partial = await pyodide.runPythonAsync(teardownCode, { globals: namespace })
-      capturedOutput.push(partial)
-    } catch (_) {}
+  } catch (err) {
+    const errMsg = err.message || String(err)
+    if (errMsg === 'TIMEOUT' || errMsg.includes('TIMEOUT')) {
+      timedOut = true
+      stderr = 'Timeout Error: Execution exceeded 4 seconds. Check for infinite loops.'
+    } else {
+      error = errMsg
+      stderr = errMsg
+    }
   } finally {
-    // Clean up namespace
     namespace.destroy()
   }
-
-  // Process output
-  let stdout = capturedOutput.filter(Boolean).join('').trim()
-  let stderr = capturedError.trim()
 
   // Truncation protection
   const lines = stdout.split('\n')
@@ -126,17 +117,30 @@ _flush_output()
     stdout += `\n\n[Output truncated to ${MAX_OUTPUT_CHARS} characters to prevent mobile browser crash]`
   }
 
-  return { stdout, stderr, timedOut, error: capturedError }
+  return { stdout, stderr, timedOut, error }
+}
+
+/**
+ * Run user's Python code and return stdout/stderr.
+ * Simple execution - no test cases.
+ */
+export async function runPythonCode(code) {
+  return executePython(code)
 }
 
 /**
  * Run user code against test cases.
- * Test cases are converted to Python eval strings.
+ * Builds a complete Python script per test case that:
+ * 1. Defines the user's function
+ * 2. Parses input/expected from JSON
+ * 3. Calls the function
+ * 4. Compares results
+ * 5. Returns JSON result
  */
 export async function runPythonTests(code, testCases, functionName) {
   const results = []
-  let stdout = ''
-  let stderr = ''
+  let capturedStdout = ''
+  let capturedStderr = ''
 
   if (!code || !testCases || testCases.length === 0) {
     return { results: [], stdout: '', stderr: 'No code or test cases provided.', error: 'Missing input' }
@@ -144,100 +148,102 @@ export async function runPythonTests(code, testCases, functionName) {
 
   for (let i = 0; i < testCases.length; i++) {
     const tc = testCases[i]
-    try {
-      // Build execution code that imports the user's function
-      const execCode = `
-import sys, json
+
+    // Escape single quotes for Python string
+    const inputJson = tc.input.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    const expectedJson = tc.expected.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+
+    // Build a complete Python script for this test case
+    const testScript = `
+import sys, json, traceback
 from io import StringIO
 
-# Capture stdout during test
+# Capture any print output
 _cap = StringIO()
 _old = sys.stdout
 sys.stdout = _cap
 
-${code}
+try:
+    # User's function definition
+${code.split('\n').map(line => '    ' + line).join('\n')}
 
-# Prepare input
-_input = ${tc.input}
-_expected = ${tc.expected}
+    # Parse test inputs from JSON
+    _input = json.loads('${inputJson}')
+    _expected = json.loads('${expectedJson}')
 
-# Call the function
-_result = ${functionName}(*_input) if isinstance(_input, list) else ${functionName}(_input)
+    # Call the function - input is always a list of arguments
+    _result = ${functionName}(*_input)
 
-# Compare
-_actual_json = json.dumps(_result, default=str)
-_expected_json = json.dumps(_expected, default=str) if not isinstance(${tc.expected}, str) else json.dumps(${tc.expected})
-_passed = _actual_json == _expected_json
+    # Serialize for comparison
+    _actual_json = json.dumps(_result, default=str, sort_keys=True)
+    _expected_json = json.dumps(_expected, default=str, sort_keys=True)
+    _passed = _actual_json == _expected_json
+    _error = None
+except Exception as _e:
+    _passed = False
+    _actual_json = None
+    _expected_json = json.dumps(_expected, default=str, sort_keys=True) if '_expected' in dir() else 'null'
+    _error = traceback.format_exc()
 
 sys.stdout = _old
 _cap_val = _cap.getvalue()
 _cap.close()
 
-(_passed, _actual_json, _expected_json, _cap_val)
+# Return JSON result
+import json as _json
+_json.dumps({
+    "passed": _passed,
+    "actual": _actual_json,
+    "expected": _expected_json,
+    "stdout": _cap_val,
+    "error": _error
+})
 `
 
-      const rawResult = await runPythonCode(execCode)
+    const rawResult = await executePython(testScript)
 
-      if (rawResult.error && !rawResult.error.includes('TIMEOUT')) {
-        results.push({
-          testNumber: i + 1,
-          input: tc.input,
-          expected: tc.expected,
-          actual: null,
-          passed: false,
-          error: rawResult.error,
-        })
-        stdout += rawResult.stdout + '\n'
-        if (rawResult.stderr) stderr += rawResult.stderr + '\n'
-        continue
-      }
-
-      // Parse result tuple from Pyodide
-      // The result is a Python tuple: (passed, actual_json, expected_json, captured_stdout)
-      if (rawResult.stdout) {
-        const lines = rawResult.stdout.split('\n').filter(l => l.trim())
-        if (lines.length > 0) {
-          try {
-            const parsed = JSON.parse(lines[lines.length - 1].replace(/'/g, '"'))
-            if (Array.isArray(parsed) && parsed.length >= 3) {
-              const [passed, actual, expected] = parsed
-              results.push({
-                testNumber: i + 1,
-                input: tc.input,
-                expected: tc.expected,
-                actual: actual,
-                passed: passed === true || passed === 'True',
-                error: null,
-              })
-              // Capture any print statements
-              stdout += parsed[3] || ''
-              continue
-            }
-          } catch (_) {}
-        }
-      }
-
-      // Fallback: try simple execution
-      results.push({
-        testNumber: i + 1,
-        input: tc.input,
-        expected: tc.expected,
-        actual: rawResult.stdout.slice(0, 200),
-        passed: false,
-        error: 'Could not parse test result. Check your function signature.',
-      })
-
-    } catch (err) {
+    if (rawResult.error && !rawResult.error.includes('TIMEOUT')) {
       results.push({
         testNumber: i + 1,
         input: tc.input,
         expected: tc.expected,
         actual: null,
         passed: false,
-        error: err.message || String(err),
+        error: rawResult.error,
       })
+      if (rawResult.stderr) capturedStderr += rawResult.stderr + '\n'
+      continue
     }
+
+    // Parse JSON result from stdout
+    if (rawResult.stdout) {
+      try {
+        const parsed = JSON.parse(rawResult.stdout)
+        results.push({
+          testNumber: i + 1,
+          input: tc.input,
+          expected: tc.expected,
+          actual: parsed.actual,
+          passed: parsed.passed === true,
+          error: parsed.error || null,
+        })
+        if (parsed.stdout) capturedStdout += parsed.stdout
+        continue
+      } catch (_) {
+        // JSON parse failed - use raw stdout
+      }
+    }
+
+    // Fallback
+    results.push({
+      testNumber: i + 1,
+      input: tc.input,
+      expected: tc.expected,
+      actual: rawResult.stdout ? rawResult.stdout.slice(0, 200) : null,
+      passed: false,
+      error: 'Could not parse test result. Check your function signature.',
+    })
   }
 
-  return { results, stdout, stderr, error: null }
+  return { results, stdout: capturedStdout, stderr: capturedStderr, error: null }
 }
