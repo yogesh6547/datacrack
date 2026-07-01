@@ -10,21 +10,14 @@
 
 let pyodideInstance = null
 let loadPromise = null
-let loadResolve = null
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js'
 
-/**
- * Initialize Pyodide. Can be called early to preload.
- * Returns a promise that resolves when Pyodide is ready.
- */
 export function initPyodide() {
   if (pyodideInstance) return Promise.resolve(pyodideInstance)
   if (loadPromise) return loadPromise
 
   loadPromise = new Promise((resolve, reject) => {
-    loadResolve = resolve
-
     const script = document.createElement('script')
     script.src = PYODIDE_URL
     script.onload = async () => {
@@ -56,13 +49,12 @@ const MAX_OUTPUT_LINES = 100
 
 /**
  * Execute Python code in a fresh namespace with stdout/stderr capture.
- * The code is placed at top level (no extra indentation added).
- * Returns (stdout, stderr) tuple from Pyodide.
+ * The code is placed at top level. Any print() output is captured.
+ * Returns { stdout, stderr, timedOut, error }.
  */
 async function executePython(code) {
   const pyodide = await getPyodide()
 
-  // Fresh namespace for isolation
   const namespace = pyodide.globals.get('dict')()
   namespace.set('__builtins__', pyodide.globals.get('__builtins__'))
 
@@ -71,7 +63,6 @@ async function executePython(code) {
   let timedOut = false
   let error = null
 
-  // Wrap code with stdout/stderr capture - code is at top level
   const wrappedCode = `
 import sys
 from io import StringIO
@@ -135,8 +126,7 @@ _captured_err.close()
 
 /**
  * Run user's Python code and return stdout/stderr.
- * Simple execution - no test cases, no wrapping.
- * Just runs the code as-is and captures output.
+ * Simple execution - no test cases.
  */
 export async function runPythonCode(code) {
   return executePython(code)
@@ -144,7 +134,16 @@ export async function runPythonCode(code) {
 
 /**
  * Run user code against test cases.
- * Builds a complete Python script per test case.
+ * 
+ * Strategy: For each test case, build a Python script that:
+ * 1. Defines the user's function
+ * 2. Parses input/expected from JSON
+ * 3. Calls the function
+ * 4. Compares results
+ * 5. Prints JSON result to stdout (captured by executePython wrapper)
+ * 
+ * The executePython wrapper captures all print() output.
+ * We parse the JSON result from the last line of stdout.
  */
 export async function runPythonTests(code, testCases, functionName) {
   const results = []
@@ -158,28 +157,23 @@ export async function runPythonTests(code, testCases, functionName) {
   for (let i = 0; i < testCases.length; i++) {
     const tc = testCases[i]
 
-    // Escape single quotes for Python string
-    const inputJson = tc.input.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-    const expectedJson = tc.expected.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    // Escape single quotes for embedding in Python string
+    const safeInput = tc.input.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    const safeExpected = tc.expected.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 
-    // Build a complete Python script for this test case
+    // Build Python script. The executePython wrapper captures stdout.
+    // We print JSON result to stdout so the wrapper captures it.
     const testScript = `
-import sys, json, traceback
-from io import StringIO
+import json, traceback
 
-# Capture any print output
-_cap = StringIO()
-_old = sys.stdout
-sys.stdout = _cap
+# Define the user's function
+${code}
+
+# Parse test inputs from JSON
+_input = json.loads('${safeInput}')
+_expected = json.loads('${safeExpected}')
 
 try:
-    # User's function definition
-${code.split('\n').map(line => '    ' + line).join('\n')}
-
-    # Parse test inputs from JSON
-    _input = json.loads('${inputJson}')
-    _expected = json.loads('${expectedJson}')
-
     # Call the function - input is always a list of arguments
     _result = ${functionName}(*_input)
 
@@ -191,22 +185,16 @@ ${code.split('\n').map(line => '    ' + line).join('\n')}
 except Exception as _e:
     _passed = False
     _actual_json = None
-    _expected_json = json.dumps(_expected, default=str, sort_keys=True) if '_expected' in dir() else 'null'
+    _expected_json = json.dumps(_expected, default=str, sort_keys=True)
     _error = traceback.format_exc()
 
-sys.stdout = _old
-_cap_val = _cap.getvalue()
-_cap.close()
-
-# Return JSON result
-import json as _json
-_json.dumps({
+# Print JSON result - captured by executePython wrapper
+print(json.dumps({
     "passed": _passed,
     "actual": _actual_json,
     "expected": _expected_json,
-    "stdout": _cap_val,
     "error": _error
-})
+}))
 `
 
     const rawResult = await executePython(testScript)
@@ -226,20 +214,34 @@ _json.dumps({
 
     // Parse JSON result from stdout
     if (rawResult.stdout) {
-      try {
-        const parsed = JSON.parse(rawResult.stdout)
-        results.push({
-          testNumber: i + 1,
-          input: tc.input,
-          expected: tc.expected,
-          actual: parsed.actual,
-          passed: parsed.passed === true,
-          error: parsed.error || null,
-        })
-        if (parsed.stdout) capturedStdout += parsed.stdout
-        continue
-      } catch (_) {
-        // JSON parse failed
+      // Find the JSON line (last line that parses as JSON)
+      const lines = rawResult.stdout.split('\n').filter(l => l.trim())
+      let jsonLine = null
+      const userOutput = []
+
+      for (const line of lines) {
+        try {
+          JSON.parse(line)
+          jsonLine = line
+        } catch {
+          userOutput.push(line)
+        }
+      }
+
+      if (jsonLine) {
+        try {
+          const parsed = JSON.parse(jsonLine)
+          results.push({
+            testNumber: i + 1,
+            input: tc.input,
+            expected: tc.expected,
+            actual: parsed.actual,
+            passed: parsed.passed === true,
+            error: parsed.error || null,
+          })
+          if (userOutput.length > 0) capturedStdout += userOutput.join('\n') + '\n'
+          continue
+        } catch (_) {}
       }
     }
 
