@@ -15,35 +15,6 @@ import { runPythonCode, runPythonTests, initPyodide } from '../../hooks/usePyodi
 import QuestionNavigator from './QuestionNavigator'
 import { Play, Send, Loader2, RotateCcw, AlertTriangle, CheckCircle, XCircle, Terminal, BookOpen } from 'lucide-react'
 
-function highlightPython(code) {
-  if (!code) return ''
-  // Build HTML entities using char codes to prevent formatter from breaking them
-  var _amp = String.fromCharCode(97, 109, 112, 59)
-  var _lt = String.fromCharCode(108, 116, 59)
-  var _gt = String.fromCharCode(103, 116, 59)
-  var a = String.fromCharCode(38) + _amp
-  var l = String.fromCharCode(38) + _lt
-  var g = String.fromCharCode(38) + _gt
-  var html = code.replace(/&/g, a).replace(/</g, l).replace(/>/g, g)
-  var colors = { kw:'#c792ea', fn:'#82aaff', str:'#c3e88d', num:'#f78c6c', com:'#546e7a', dec:'#89ddff' }
-  var kw = '\\b(False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\\b'
-  var bn = '\\b(print|len|range|int|float|str|list|dict|set|tuple|bool|type|map|filter|zip|enumerate|sorted|reversed|min|max|sum|abs|any|all|isinstance|hasattr|getattr|setattr|delattr|open|input|repr|eval|exec)\\b'
-  var pats = [
-    { r: /(#.*)$/gm, c: colors.com },
-    { r: /('''[\s\S]*?'''|"""[\s\S]*?"""|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/g, c: colors.str },
-    { r: /\b(\d+\.?\d*)\b/g, c: colors.num },
-    { r: new RegExp(kw, 'g'), c: colors.kw },
-    { r: new RegExp(bn, 'g'), c: colors.fn },
-    { r: /(@\w+)/g, c: colors.dec },
-  ]
-  for (var i = 0; i < pats.length; i++) {
-    html = html.replace(pats[i].r, function(m) {
-      return '<span style="color:' + pats[i].c + '">' + m + '</span>'
-    })
-  }
-  return html
-}
-
 export default function PyodidePythonPage() {
   const { questionId } = useParams()
   const navigate = useNavigate()
@@ -62,6 +33,7 @@ export default function PyodidePythonPage() {
   const [showConsole, setShowConsole] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState(0)
   const editorRef = useRef(null)
+  const lineNumRef = useRef(null)
 
   const filteredQuestions = useMemo(() => {
     if (!activeCategory) return pythonQuestions
@@ -165,6 +137,13 @@ export default function PyodidePythonPage() {
     }
   }, [activeCategory])
 
+  // Sync textarea scroll with line numbers
+  const handleScroll = useCallback(() => {
+    if (editorRef.current && lineNumRef.current) {
+      lineNumRef.current.scrollTop = editorRef.current.scrollTop
+    }
+  }, [])
+
   if (!currentQuestion) {
     return <div className="flex items-center justify-center h-full"><p className="text-gray-500">No questions found.</p></div>
   }
@@ -172,7 +151,8 @@ export default function PyodidePythonPage() {
   const passedTests = results.filter(r => r.passed).length
   const totalTests = results.length
 
-  const highlightedCode = useMemo(() => highlightPython(currentCode), [currentCode])
+  // Count lines for line numbers
+  const lineCount = currentCode.split('\n').length
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-slate-900">
@@ -279,19 +259,26 @@ export default function PyodidePythonPage() {
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 relative">
-              <pre className="absolute inset-0 p-4 font-mono text-sm leading-relaxed pointer-events-none overflow-hidden"
-                style={{ lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} aria-hidden="true">
-                {highlightedCode.split('\n').map((line, i) => (
-                  <div key={i} className="flex">
-                    <span className="text-gray-500 select-none w-8 text-right mr-3 text-xs shrink-0">{i + 1}</span>
-                    <span className="text-gray-200" dangerouslySetInnerHTML={{ __html: line || '&nbsp;' }} />
-                  </div>
-                ))}
-              </pre>
-              <textarea ref={editorRef} value={currentCode} onChange={(e) => handleCodeChange(e.target.value)}
-                className="w-full h-full p-4 font-mono text-sm leading-relaxed bg-transparent text-transparent caret-gray-200 border-0 resize-none focus:outline-none focus:ring-0 relative z-10"
-                spellCheck={false} style={{ tabSize: 4, lineHeight: 1.6 }} />
+            {/* Code Editor - Clean textarea with synced line numbers */}
+            <div className="flex-1 min-h-0 flex bg-gray-900">
+              {/* Line Numbers */}
+              <div ref={lineNumRef} className="w-12 shrink-0 overflow-hidden bg-gray-950/50 select-none" aria-hidden="true">
+                <div className="py-4 font-mono text-xs leading-relaxed text-gray-500 text-right pr-3" style={{ lineHeight: 1.6 }}>
+                  {Array.from({ length: lineCount }, (_, i) => (
+                    <div key={i}>{i + 1}</div>
+                  ))}
+                </div>
+              </div>
+              {/* Textarea */}
+              <textarea
+                ref={editorRef}
+                value={currentCode}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                onScroll={handleScroll}
+                className="flex-1 p-4 pl-3 font-mono text-sm leading-relaxed bg-transparent text-gray-200 border-0 resize-none focus:outline-none focus:ring-0"
+                spellCheck={false}
+                style={{ tabSize: 4, lineHeight: 1.6 }}
+              />
             </div>
 
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/50 shrink-0">
