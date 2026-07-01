@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './components/layout/AppLayout'
-import PythonChallengePage from './components/python/PythonChallengePage'
+import PyodidePythonPage from './components/python/PyodidePythonPage'
 import SQLChallengePage from './components/sql/SQLChallengePage'
 import MLConceptsPage from './components/ml/MLConceptsPage'
 import ConceptsLayout from './components/ml/ConceptsLayout'
@@ -10,8 +10,8 @@ function App() {
     <Routes>
       <Route path="/" element={<AppLayout />}>
         <Route index element={<Navigate to="/Concepts" replace />} />
-        <Route path="python" element={<PythonChallengePage />} />
-        <Route path="python/:questionId" element={<PythonChallengePage />} />
+        <Route path="python" element={<PyodidePythonPage />} />
+        <Route path="python/:questionId" element={<PyodidePythonPage />} />
         <Route path="sql" element={<SQLChallengePage />} />
         <Route path="sql/:questionId" element={<SQLChallengePage />} />
         <Route path="ml" element={<MLConceptsPage />} />
