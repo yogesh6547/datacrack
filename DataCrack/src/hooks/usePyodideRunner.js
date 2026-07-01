@@ -10,27 +10,44 @@
 
 let pyodideInstance = null
 let loadPromise = null
+let loadResolve = null
 
 const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js'
 
-async function getPyodide() {
-  if (pyodideInstance) return pyodideInstance
+/**
+ * Initialize Pyodide. Can be called early to preload.
+ * Returns a promise that resolves when Pyodide is ready.
+ */
+export function initPyodide() {
+  if (pyodideInstance) return Promise.resolve(pyodideInstance)
   if (loadPromise) return loadPromise
 
-  loadPromise = (async () => {
+  loadPromise = new Promise((resolve, reject) => {
+    loadResolve = resolve
+
     const script = document.createElement('script')
     script.src = PYODIDE_URL
+    script.onload = async () => {
+      try {
+        const pyodide = await globalThis.loadPyodide({
+          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/',
+        })
+        pyodideInstance = pyodide
+        resolve(pyodide)
+      } catch (err) {
+        reject(err)
+      }
+    }
+    script.onerror = () => reject(new Error('Failed to load Pyodide script'))
     document.head.appendChild(script)
-    await new Promise((resolve) => { script.onload = resolve })
-
-    const pyodide = await globalThis.loadPyodide({
-      indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/',
-    })
-    pyodideInstance = pyodide
-    return pyodide
-  })()
+  })
 
   return loadPromise
+}
+
+async function getPyodide() {
+  if (pyodideInstance) return pyodideInstance
+  return initPyodide()
 }
 
 const PYTHON_TIMEOUT_MS = 4000
@@ -39,8 +56,8 @@ const MAX_OUTPUT_LINES = 100
 
 /**
  * Execute Python code in a fresh namespace with stdout/stderr capture.
- * The code is wrapped with StringIO redirection and returns (stdout, stderr) tuple.
- * This is the low-level executor used by both runPythonCode and runPythonTests.
+ * The code is placed at top level (no extra indentation added).
+ * Returns (stdout, stderr) tuple from Pyodide.
  */
 async function executePython(code) {
   const pyodide = await getPyodide()
@@ -54,7 +71,7 @@ async function executePython(code) {
   let timedOut = false
   let error = null
 
-  // Wrap code with stdout/stderr capture
+  // Wrap code with stdout/stderr capture - code is at top level
   const wrappedCode = `
 import sys
 from io import StringIO
@@ -66,11 +83,7 @@ _orig_stderr = sys.stderr
 sys.stdout = _captured_out
 sys.stderr = _captured_err
 
-try:
-${code.split('\n').map(line => '    ' + line).join('\n')}
-except Exception as _e:
-    import traceback
-    traceback.print_exc()
+${code}
 
 sys.stdout = _orig_stdout
 sys.stderr = _orig_stderr
@@ -122,7 +135,8 @@ _captured_err.close()
 
 /**
  * Run user's Python code and return stdout/stderr.
- * Simple execution - no test cases.
+ * Simple execution - no test cases, no wrapping.
+ * Just runs the code as-is and captures output.
  */
 export async function runPythonCode(code) {
   return executePython(code)
@@ -130,12 +144,7 @@ export async function runPythonCode(code) {
 
 /**
  * Run user code against test cases.
- * Builds a complete Python script per test case that:
- * 1. Defines the user's function
- * 2. Parses input/expected from JSON
- * 3. Calls the function
- * 4. Compares results
- * 5. Returns JSON result
+ * Builds a complete Python script per test case.
  */
 export async function runPythonTests(code, testCases, functionName) {
   const results = []
@@ -230,7 +239,7 @@ _json.dumps({
         if (parsed.stdout) capturedStdout += parsed.stdout
         continue
       } catch (_) {
-        // JSON parse failed - use raw stdout
+        // JSON parse failed
       }
     }
 

@@ -11,7 +11,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { pythonQuestions } from '../../data/pythonQuestions'
 import { useProgress } from '../../context/ProgressContext'
-import { runPythonCode, runPythonTests } from '../../hooks/usePyodideRunner'
+import { runPythonCode, runPythonTests, initPyodide } from '../../hooks/usePyodideRunner'
 import QuestionNavigator from './QuestionNavigator'
 import { Play, Send, Loader2, RotateCcw, AlertTriangle, CheckCircle, XCircle, Terminal, BookOpen } from 'lucide-react'
 
@@ -89,9 +89,9 @@ export default function PyodidePythonPage() {
       }, 500)
 
       try {
-        const { runPythonCode } = await import('../../hooks/usePyodideRunner')
-        // Trigger initial load
-        await runPythonCode('print("Pyodide loaded")')
+        await initPyodide()
+        // Trigger a test run to verify
+        await runPythonCode('print("Pyodide loaded successfully")')
         if (mounted) {
           setPyodideLoaded(true)
           setLoadingProgress(100)
